@@ -1,0 +1,6 @@
+django
+maxapi[webhook]
+python-dotenv
+requests
+psycopg2-binary
+zulip
