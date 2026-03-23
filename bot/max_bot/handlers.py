@@ -214,62 +214,14 @@ async def text_handler(event: MessageCreated):
     await dj_message.asave()
 
 
-# @user_router.message_created()
-# async def any_message(event: MessageCreated):
-#     print(event.message)
-#     await event.message.answer("Получено сообщение")
-
+@user_router.message_created(F.message.body.attachments)
+async def on_attachment(event: MessageCreated):
+    print(event)
+    print(event.bot)
+    await event.message.answer('')
 
 
 """    
-
-@dataclass
-class ZulipMessage:
-    channel_id: int
-    topik_name: str
-    text: str
-
-
-@user_router.message(F.text)
-async def user_message(message: Message) -> None:
-    tg_user_id = message.from_user.id
-    try:
-        user = await Profile.objects.select_related('company').aget(tg_id=tg_user_id)
-    except Profile.DoesNotExist:
-        user = None
-
-    if not user:
-        await message.answer(
-            "Вы еще не отправили ваш номер телефона.\n"
-            "Нажмите на кнопку ОТПРАВИТЬ ниже.",
-            reply_markup=kbs.contact_keyboard()
-        )
-        return
-
-    logger.info(f"Получено сообщение от пользователя бота {user}: {message.text}")
-
-    topic_name = user.get_zulip_topic_name()
-    message_text = message.text
-    channel_id = user.company.channel_id
-
-    chat_type = message.chat.type
-    if 'group' in chat_type:  # сообщение отправлено из группы
-        topic_name = f"Группа_{message.chat.id}"
-        message_text = f"{user.get_full_name()}: {message_text}"
-
-    # отправим сообщение в Zulip
-    zulip_client.send_msg_to_channel(channel_id, topic_name, message_text)
-
-    # сохраним сообщение в Джанго
-    dj_message = Message(
-        sender=user,
-        content=message_text,
-    )
-    await dj_message.asave()
-
-    await asyncio.sleep(0)
-
-
 @user_router.message(F.photo)
 async def get_photo(message: Message):
     # todo ниже большой кусок дублируетс
@@ -329,39 +281,25 @@ async def get_photo(message: Message):
 
 
 """
-Message(
-    message_id=743, date=datetime.datetime(2026, 1, 18, 15, 7, 19, tzinfo=TzInfo(0)), 
-    chat=Chat(id=542393918, type='private', title=None, username=None, first_name='Александр', last_name=None, is_forum=None, 
-        is_direct_messages=None, accent_color_id=None, active_usernames=None, available_reactions=None, background_custom_emoji_id=None, 
-        bio=None, birthdate=None, business_intro=None, business_location=None, business_opening_hours=None, can_set_sticker_set=None, 
-        custom_emoji_sticker_set_name=None, description=None, emoji_status_custom_emoji_id=None, emoji_status_expiration_date=None, 
-        has_aggressive_anti_spam_enabled=None, has_hidden_members=None, has_private_forwards=None, has_protected_content=None, 
-        has_restricted_voice_and_video_messages=None, has_visible_history=None, invite_link=None, join_by_request=None, 
-        join_to_send_messages=None, linked_chat_id=None, location=None, message_auto_delete_time=None, permissions=None, 
-        personal_chat=None, photo=None, pinned_message=None, profile_accent_color_id=None, profile_background_custom_emoji_id=None, 
-        slow_mode_delay=None, sticker_set_name=None, unrestrict_boost_count=None), 
-    message_thread_id=None, 
-    direct_messages_topic=None, 
-    from_user=User(id=542393918, is_bot=False, first_name='Александр', last_name=None, username=None, language_code='ru', 
-        is_premium=None, added_to_attachment_menu=None, can_join_groups=None, can_read_all_group_messages=None, 
-        supports_inline_queries=None, can_connect_to_business=None, has_main_web_app=None, has_topics_enabled=None), 
-    sender_chat=None, sender_boost_count=None, sender_business_bot=None, business_connection_id=None, forward_origin=None, 
-    is_topic_message=None, is_automatic_forward=None, reply_to_message=None, external_reply=None, quote=None, reply_to_story=None, 
-    reply_to_checklist_task_id=None, via_bot=None, edit_date=None, has_protected_content=None, is_from_offline=None, is_paid_post=None, 
-    media_group_id=None, author_signature=None, paid_star_count=None, text='/start ArtLife', 
-    entities=[MessageEntity(type='bot_command', offset=0, length=6, url=None, user=None, language=None, custom_emoji_id=None)], 
-    link_preview_options=None, suggested_post_info=None, effect_id=None, animation=None, audio=None, document=None, paid_media=None, 
-    photo=None, sticker=None, story=None, video=None, video_note=None, voice=None, caption=None, caption_entities=None, 
-    show_caption_above_media=None, has_media_spoiler=None, checklist=None, contact=None, dice=None, game=None, poll=None, 
-    venue=None, location=None, new_chat_members=None, left_chat_member=None, new_chat_title=None, new_chat_photo=None, 
-    delete_chat_photo=None, group_chat_created=None, supergroup_chat_created=None, channel_chat_created=None, 
-    message_auto_delete_timer_changed=None, migrate_to_chat_id=None, migrate_from_chat_id=None, pinned_message=None, invoice=None, 
-    successful_payment=None, refunded_payment=None, users_shared=None, chat_shared=None, gift=None, unique_gift=None, 
-    gift_upgrade_sent=None, connected_website=None, write_access_allowed=None, passport_data=None, proximity_alert_triggered=None, 
-    boost_added=None, chat_background_set=None, checklist_tasks_done=None, checklist_tasks_added=None, direct_message_price_changed=None, 
-    forum_topic_created=None, forum_topic_edited=None, forum_topic_closed=None, forum_topic_reopened=None, general_forum_topic_hidden=None, 
-    general_forum_topic_unhidden=None, giveaway_created=None, giveaway=None, giveaway_winners=None, giveaway_completed=None, 
-    paid_message_price_changed=None, suggested_post_approved=None, suggested_post_approval_failed=None, suggested_post_declined=None, 
-    suggested_post_paid=None, suggested_post_refunded=None, video_chat_scheduled=None, video_chat_started=None, video_chat_ended=None, 
-    video_chat_participants_invited=None, web_app_data=None, reply_markup=None, forward_date=None, forward_from=None, forward_from_chat=None, 
-    forward_from_message_id=None, forward_sender_name=None, forward_signature=None, user_shared=None)"""
+bot=<maxapi.bot.Bot object at 0x7eb465bffb00> update_type=<UpdateType.MESSAGE_CREATED: 'message_created'> 
+timestamp=1774294959025 
+from_user=User(user_id=184560163, first_name='Александр', last_name='', username=None, is_bot=False, 
+    last_activity_time=1774294939000, description=None, avatar_url=None, full_avatar_url=None, commands=None) 
+chat=Chat(chat_id=9553880, type=<ChatType.DIALOG: 'dialog'>, status=<ChatStatus.ACTIVE: 'active'>, title=None, 
+    icon=None, last_event_time=1774294959025, participants_count=2, owner_id=None, participants=None, 
+    is_public=False, link=None, description=None, 
+        dialog_with_user=User(user_id=184560163, first_name='Александр', last_name='', username=None, 
+        is_bot=False, last_activity_time=1774294939000, description=None, avatar_url=None, full_avatar_url=None, commands=None), 
+    messages_count=None, chat_message_id=None, pinned_message=None) 
+message=Message(bot=<maxapi.bot.Bot object at 0x7eb465bffb00>, 
+    sender=User(user_id=184560163, first_name='Александр', last_name='', username=None, is_bot=False, 
+        last_activity_time=1774294939000, description=None, avatar_url=None, full_avatar_url=None, commands=None), 
+    recipient=Recipient(user_id=194113019, chat_id=9553880, chat_type=<ChatType.DIALOG: 'dialog'>), 
+    timestamp=1774294959025, link=None, 
+    body=MessageBody(mid='mid.000000000091c7d8019d1c3883b17b7f', seq=116280194434694015, text='', 
+        attachments=[Image(type='image', payload=PhotoAttachmentPayload(photo_id=9677135651, 
+            token='Mm+nJbWc9UiMZ7wjtFKNBpUmBZXNOpGNt9+/Je7RU0RUzXYeZnWAxKHAhztz8sgvOH7iZnTKKRDGHv0hNcbfIYCKNrC4PzSf', 
+            url='https://i.oneme.ru/i?r=BTGBPUwtwgYUeoFhO7rESmr8CXtywNzE0iuqP2X4yJrSndwS0Gkbqc8ftHl9Gyzjaes'), 
+            bot=<maxapi.bot.Bot object at 0x7eb465bffb00>)], markup=[]), stat=None, url=None) user_locale='ru'
+
+"""
