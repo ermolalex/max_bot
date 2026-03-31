@@ -1,4 +1,11 @@
 import  re
+from enum import Enum
+
+
+class BotType(str, Enum):
+    tg = "TG"
+    max = "MAX"
+
 
 # @_**Александр|8** [писал/а](https://zulip.voblake.shop/#narrow/channel/20-.D0.9A.D0.B8.D0.9A-.D1.81.D0.BE.
 # D1.84.D1.82-.28.D1.82.D0.B5.D1.81.D1.82.D0.BE.D0.B2.D1.8B.D0.B9.29/topic/.D0.90.D0.BB.D0.B5.D0.BA.D1.81.
@@ -78,4 +85,12 @@ def clean_quote2(text: str) -> str:
         print(f"Вы писали: {last_quote}\n\n{new_text}")
         return f"Вы писали: {last_quote}\n\n{new_text}"
     return text
+
+def get_zulip_topic_name(user, bot_type):
+    if bot_type == BotType.tg:
+        return f"{user.first_name}_{user.max_id}"
+    elif bot_type == BotType.max:
+        return f"{user.first_name}_{user.max_id}_m"
+    else:
+        raise ValueError("Не указан тип мессенджера.")
 

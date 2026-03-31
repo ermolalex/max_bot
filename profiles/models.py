@@ -19,7 +19,3 @@ class Profile(AbstractUser):
     tg_id = models.BigIntegerField(unique=True, db_index=True, blank=True, null=True)
     max_id = models.BigIntegerField(unique=True, db_index=True, blank=True, null=True)
     company = models.ForeignKey(Company, on_delete=models.PROTECT, blank=True, null=True)
-
-
-    def get_zulip_topic_name(self):
-        return f"{self.first_name}_{self.max_id}_m"

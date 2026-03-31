@@ -8,6 +8,10 @@ from maxapi.types import BotStarted, MessageCreated
 from maxapi.types.users import User
 from maxapi.filters.contact import ContactFilter
 from maxapi.types.attachments.contact import Contact
+from maxapi.types.attachments.image import Image
+from maxapi.types.attachments.file import File
+from maxapi.types.attachments.attachment import PhotoAttachmentPayload
+from maxapi.types.attachments.attachment import OtherAttachmentPayload
 
 from bot.zulip_client import ZulipClient, ZulipException
 
@@ -27,6 +31,7 @@ from bot.max_bot.utils.utils import make_random_password
 
 from bot.logger import create_logger
 from bot.max_bot import keyboards
+from bot.helpers import BotType, get_zulip_topic_name
 
 
 text_about = """
@@ -88,25 +93,30 @@ async def get_or_create_user_django(bot_user: User, company: Company) -> (User, 
     return (user, created)
 
 
-async def handle_start_command(bot_user: User, company_name: str):
-    msg_text = f"Команда /start от {bot_user.first_name} с ID {bot_user.user_id}. Компания: {company_name}."
+async def handle_start_command(bot_user: User, channel_id: int):
+    msg_text = f"Команда /start от {bot_user.first_name} с ID {bot_user.user_id}. Channel_id={channel_id}."
     logger.info(msg_text)
     #send_bot_event_msg_to_zulip(f"{msg_text}")  # todo добавить в фоновые задачи (fastapi.BackgroundTask, aiojobs)
 
     # ищем или создаем компанию в Джанго
-    company, created = await Company.objects.aget_or_create(
-        channel_name=company_name,
-        defaults={'name': company_name}
-    )
-    if created:
-        logger.info(f"Создана компания в Джанго: {company_name}.")
+    # company, created = await Company.objects.aget_or_create(
+    #     channel_id=channel_id,
+    #     defaults={'name': company_name}
+    # )
+    # if created:
+    #     logger.info(f"Создана компания в Джанго: {company_name}.")
+
+    try:
+        company = await Company.objects.aget(channel_id=channel_id)
+    except Company.DoesNotExist:
+        company = await Company.objects.aget(channel_id=settings.NONAME_CHANNEL_ID)
 
     # проверяем, есть ли канал компании в Zulip
-    if not company.channel_id:
-        # канал в Zulip еще не создан. Создаем
-        channel_id = zulip_client.get_or_create_channel(company_name, settings.ZULIP_STAFF_IDS)
-        company.channel_id = channel_id
-        await company.asave()
+    # if not company.channel_id:
+    #     # канал в Zulip еще не создан. Создаем
+    #     channel_id = zulip_client.get_or_create_channel(company_name, settings.ZULIP_STAFF_IDS)
+    #     company.channel_id = channel_id
+    #     await company.asave()
 
     #если в Джанго нет пользователя с таким max_id, то создаем
     user, created = await get_or_create_user_django(bot_user, company)
@@ -123,16 +133,24 @@ async def handle_start_command(bot_user: User, company_name: str):
 
 
 # Обработчик команды "/start
+# Чтобы в payload передать channel_id, нужно
+# - создать канала (его id и нужно будет передать в payload)
+# - в админ-базе создать Компанию и указать Channel_name и Channel_id
 @user_router.bot_started()
 async def bot_started(event: BotStarted):
     # async def cmd_start(message: Message, command: CommandObject):
     from_user = event.from_user
-    company_name = event.payload
+    channel_id = event.payload
 
-    if not company_name:
-        company_name = settings.NONAME_CHANNEL_NAME
+    if not channel_id:
+        channel_id = settings.NONAME_CHANNEL_ID
 
-    await handle_start_command(from_user, company_name)
+    try:
+        channel_id = int(channel_id)
+    except ValueError:
+        channel_id = settings.NONAME_CHANNEL_ID
+
+    await handle_start_command(from_user, channel_id)
 
     # await message.answer(get_about_us_text(), reply_markup=kbs.contact_keyboard())
     kbd = keyboards.contact_keyboard()
@@ -163,7 +181,7 @@ async def on_contact(event, contact: Contact):
 
         # отправим "тестовое" сообщение в Zulip
         channel_id = user.company.channel_id
-        topic_name = user.get_zulip_topic_name()
+        topic_name = get_zulip_topic_name(user, BotType.max)
         message_text = "Я новый пользователь"
         zulip_client.send_msg_to_channel(channel_id, topic_name, message_text)
     else:
@@ -194,7 +212,7 @@ async def text_handler(event: MessageCreated):
 
     logger.info(f"Получено сообщение от пользователя бота {user}: {event.message.body.text}")
 
-    topic_name = user.get_zulip_topic_name()
+    topic_name = get_zulip_topic_name(user, BotType.max)
     message_text = event.message.body.text
     channel_id = user.company.channel_id
 
@@ -216,9 +234,66 @@ async def text_handler(event: MessageCreated):
 
 @user_router.message_created(F.message.body.attachments)
 async def on_attachment(event: MessageCreated):
-    print(event)
-    print(event.bot)
-    await event.message.answer('')
+    images = []
+    for attachment in event.message.body.attachments:
+        if isinstance(attachment, Image) and isinstance(attachment.payload, PhotoAttachmentPayload):
+            print('Image attachment', attachment)
+            images.append(attachment.payload.url)
+        elif isinstance(attachment, File) and isinstance(attachment.payload, OtherAttachmentPayload):
+            print('File attachment', attachment)
+            images.append(attachment.payload.url)
+
+    user_id = event.from_user.user_id
+    try:
+        user = await Profile.objects.select_related('company').aget(max_id=user_id)
+    except Profile.DoesNotExist:
+        user = None
+
+    if not user:
+        kbd = keyboards.contact_keyboard()
+        await event.message.answer(
+            "Вы еще не отправили ваш номер телефона.\n"
+            "Нажмите на кнопку ОТПРАВИТЬ ниже.",
+            attachments=[kbd, ]
+        )
+        return
+
+    logger.info(f"Получена картинка от пользователя бота {user}")
+
+    topic_name = get_zulip_topic_name(user, BotType.max)
+    channel_id = user.company.channel_id
+
+    for img_url in images:
+        message_text = f"Image: {img_url}"
+
+        zulip_client.send_msg_to_channel(channel_id, topic_name, message_text)
+
+        # сохраним сообщение в Джанго
+        dj_message = Message(
+            sender=user,
+            content=message_text,
+        )
+        await dj_message.asave()
+
+    await asyncio.sleep(0)
+
+# @user_router.message_created(F.message.body.attachments)
+# async def on_attachment(event: MessageCreated, context):
+#     print('files', event.message.body.attachments)
+    # images = []
+    # for attachment in event.message.body.attachments:
+    #     print('attachment', attachment)
+    #     print('type', type(attachment))
+    #     print('type payload', type(attachment.payload))
+    #     if isinstance(attachment, Image) and isinstance(attachment.payload, PhotoAttachmentPayload):
+    #         images.append(attachment.payload.url)
+    #     elif isinstance(attachment, File) and isinstance(attachment.payload, OtherAttachmentPayload):
+    #         images.append(attachment.payload.url)
+    #
+    # print('images', images)
+    # await asyncio.sleep(0)
+    #await event.message.answer(f"Получена картинка")
+
 
 
 """    
@@ -241,7 +316,7 @@ async def get_photo(message: Message):
 
     logger.info(f"Получено фото от пользователя {user}")
 
-    topic_name = user.get_zulip_topic_name()
+    topic_name = get_zulip_topic_name(user, BotType.max)
     channel_id = user.company.channel_id
 
     chat_type = message.chat.type

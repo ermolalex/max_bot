@@ -31,8 +31,10 @@ async def main():
 
     await dp.handle_webhook(
         bot=bot,
-        host='localhost',
-        port=8000,
+        host='0.0.0.0',
+        port=80,
+        # host='localhost',
+        # port=8000,
         log_level=logging.DEBUG  # Можно убрать, для подробного логирования
     )
 
