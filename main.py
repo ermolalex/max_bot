@@ -13,7 +13,8 @@ from bot.logger import create_logger
 
 
 load_dotenv()
-token = os.environ.get("BOT_TOKEN")
+token = os.environ.get("MAX_BOT_TOKEN")
+max_webhook_url = os.environ.get("MAX_WEBHOOK_URL")
 
 bot = Bot(token=token)
 dp = Dispatcher()
@@ -24,7 +25,7 @@ logger = create_logger(logger_name=__name__)
 
 async def main():
     await bot.subscribe_webhook(
-        url='https://tediously-potent-merlin.cloudpub.ru:443',
+        url=f'{max_webhook_url}:443',
         #secret='SuperSecretWord()<>'
     )
 
@@ -32,7 +33,7 @@ async def main():
     await dp.handle_webhook(
         bot=bot,
         host='0.0.0.0',
-        port=80,
+        port=8000,
         # host='localhost',
         # port=8000,
         log_level=logging.DEBUG  # Можно убрать, для подробного логирования
