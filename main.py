@@ -61,15 +61,17 @@ async def main():
         #secret='SuperSecretWord()<>'
     )
 
-
-    await dp.handle_webhook(
-        bot=bot,
-        host='0.0.0.0',
-        port=8000,
-        # host='localhost',
-        # port=8000,
-        log_level=logging.DEBUG  # Можно убрать, для подробного логирования
-    )
+    while True:
+        try:
+            await dp.handle_webhook(
+                bot=bot,
+                host='0.0.0.0',
+                port=8000,
+                log_level=logging.DEBUG  # Можно убрать, для подробного логирования
+            )
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            await asyncio.sleep(1)
 
     await bot.delete_webhook()
 
