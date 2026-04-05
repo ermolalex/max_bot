@@ -28,7 +28,7 @@ class ZulipClient():
                 api_key=settings.ZULIP_API_KEY,
                 email=settings.ZULIP_EMAIL,
                 site=settings.ZULIP_SITE,
-                insecure=settings.ZULIP_ALLOW_INSECURE
+                #insecure=settings.ZULIP_ALLOW_INSECURE
             )
             self.is_active = True
             logger.info("ZulipClient настроен.")
